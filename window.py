@@ -66,4 +66,14 @@ class Cell:
         if self.has_right_wall:
             line = Line(Point(self._x2, self._y1), Point(self._x2, self._y2))
             line.draw(self._win.canvas, "black")
-            
+
+    def draw_move(self, to_cell, undo=False):
+        x1 = sum([self._x1, self._x2]) / 2
+        y1 = sum([self._y1, self._y2]) / 2
+        x2 = sum([to_cell._x1, to_cell._x2]) / 2
+        y2 = sum([to_cell._y1, to_cell._y2]) / 2
+        fill = "red"
+        if undo:
+            fill = "gray"
+        line = Line(Point(x1, y1), Point(x2, y2))
+        line.draw(self._win.canvas, fill)

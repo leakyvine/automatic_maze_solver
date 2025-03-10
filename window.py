@@ -1,3 +1,4 @@
+import random
 import time
 from tkinter import Tk, BOTH, Canvas
 
@@ -53,6 +54,7 @@ class Cell:
         self._y1 = _y1
         self._y2 = _y2
         self._win = _win
+        self.visited = False
 
     def draw(self):
         if self._win is None:
@@ -62,25 +64,25 @@ class Cell:
             line.draw(self._win.canvas, "black")
         else:
             line = Line(Point(self._x1, self._y1), Point(self._x2, self._y1))
-            line.draw(self._win.canvas, "white")
+            line.draw(self._win.canvas, "#D9D9D9")
         if self.has_bottom_wall:
             line = Line(Point(self._x1, self._y2), Point(self._x2, self._y2))
             line.draw(self._win.canvas, "black")
         else:
             line = Line(Point(self._x1, self._y2), Point(self._x2, self._y2))
-            line.draw(self._win.canvas, "white")
+            line.draw(self._win.canvas, "#D9D9D9")
         if self.has_left_wall:
             line = Line(Point(self._x1, self._y1), Point(self._x1, self._y2))
             line.draw(self._win.canvas, "black")
         else:
             line = Line(Point(self._x1, self._y1), Point(self._x1, self._y2))
-            line.draw(self._win.canvas, "white")
+            line.draw(self._win.canvas, "#D9D9D9")
         if self.has_right_wall:
             line = Line(Point(self._x2, self._y1), Point(self._x2, self._y2))
             line.draw(self._win.canvas, "black")
         else:
             line = Line(Point(self._x2, self._y1), Point(self._x2, self._y2))
-            line.draw(self._win.canvas, "white")
+            line.draw(self._win.canvas, "#D9D9D9")
 
     def draw_move(self, to_cell, undo=False):
         x1 = sum([self._x1, self._x2]) / 2
@@ -94,7 +96,7 @@ class Cell:
         line.draw(self._win.canvas, fill)
 
 class Maze:
-    def __init__(self, x1, y1, num_rows, num_cols, cell_size_x, cell_size_y, win=None):
+    def __init__(self, x1, y1, num_rows, num_cols, cell_size_x, cell_size_y, win=None, seed=None):
         self.x1 = x1
         self.y1 = y1
         self.num_rows = num_rows
@@ -102,7 +104,12 @@ class Maze:
         self.cell_size_x = cell_size_x
         self.cell_size_y = cell_size_y
         self.win = win
+        if seed is not None:
+            self.seed = random.seed(seed)
         self._create_cells()
+        self._break_walls_r(0, 0)
+        self._break_entrance_and_exit()
+        self._debug_print_walls()
 
     def _create_cells(self):
         self._cells = []
@@ -118,18 +125,19 @@ class Maze:
 
 
 
-    def _draw_cell(self, i, j):
-        x1 = self.x1 + j * self.cell_size_x  # j is column
-        y1 = self.y1 + i * self.cell_size_y  # i is row
+    def _draw_cell(self, i, j): # i is row, j is column
+        x1 = self.x1 + j * self.cell_size_x 
+        y1 = self.y1 + i * self.cell_size_y 
         x2 = x1 + self.cell_size_x
         y2 = y1 + self.cell_size_y
         
         cell = self._cells[i][j]
-        cell.x1 = x1
-        cell.y1 = y1
-        cell.x2 = x2
-        cell.y2 = y2
+        cell._x1 = x1
+        cell._y1 = y1
+        cell._x2 = x2
+        cell._y2 = y2
         if self.win is not None:
+            print("DRAWING CHECK")
             cell.draw()
             self._animate()
         
@@ -137,17 +145,73 @@ class Maze:
 
     def _animate(self):
         self.win.redraw()
-        time.sleep(0.1)
+        time.sleep(0.005)
 
     def _break_entrance_and_exit(self):
         start = self._cells[0][0]
         start.has_top_wall = False
         start.draw()
 
-        print(f"Maze dimensions: {len(self._cells)} rows by {len(self._cells[0])} columns")
-        print(f"Trying to access cell at position: {len(self._cells)-1}, {len(self._cells[0])-1}")
+        #print(f"Maze dimensions: {len(self._cells)} rows by {len(self._cells[0])} columns")
+        #print(f"Trying to access cell at position: {len(self._cells)-1}, {len(self._cells[0])-1}")
 
         end = self._cells[-1][-1]
-        print(f"End cell exists: {end is not None}")
+        #print(f"End cell exists: {end is not None}")
         end.has_bottom_wall = False
         end.draw()
+
+    def _break_walls_r(self, i, j):
+        self._cells[i][j].visited = True
+        print(f"DEBUG: Currently at cell {i}/{j}")
+        while True:
+            to_visit = []
+            if i > 0 and not self._cells[i-1][j].visited:
+                to_visit.append((i-1, j))
+            if i < len(self._cells) -1 and not self._cells[i+1][j].visited:
+                to_visit.append((i+1, j))
+            if j > 0 and not self._cells[i][j-1].visited:
+                to_visit.append((i, j-1))
+            if j < len(self._cells[i]) - 1 and not self._cells[i][j+1].visited:
+                to_visit.append((i, j+1))
+            print(f"DEBUG: to_visit: {to_visit}")
+            if not to_visit:
+                self._cells[i][j].draw()
+                return
+            else:
+                next_pos = random.choice(to_visit)
+                next_i, next_j = next_pos
+
+                if next_i < i:  # next cell is above
+                    #print(f"DEBUG: Breaking wall between ({i},{j}) and ({next_i},{next_j}) - TOP")
+                    self._cells[i][j].has_top_wall = False
+                    self._cells[next_i][next_j].has_bottom_wall = False
+                    self._cells[i][j].draw()
+                    self._cells[next_i][next_j].draw()
+                elif next_i > i:  # next cell is below
+                    #print(f"DEBUG: Breaking wall between ({i},{j}) and ({next_i},{next_j}) - BOTTOM")
+                    self._cells[i][j].has_bottom_wall = False
+                    self._cells[next_i][next_j].has_top_wall = False
+                    self._cells[i][j].draw()
+                    self._cells[next_i][next_j].draw()
+                elif next_j < j:  # next cell is left
+                    #print(f"DEBUG: Breaking wall between ({i},{j}) and ({next_i},{next_j}) - LEFT")
+                    self._cells[i][j].has_left_wall = False
+                    self._cells[next_i][next_j].has_right_wall = False
+                    self._cells[i][j].draw()
+                    self._cells[next_i][next_j].draw()
+                elif next_j > j:  # next cell is right
+                    #print(f"DEBUG: Breaking wall between ({i},{j}) and ({next_i},{next_j}) - RIGHT")
+                    self._cells[i][j].has_right_wall = False
+                    self._cells[next_i][next_j].has_left_wall = False
+                    self._cells[i][j].draw()
+                    self._cells[next_i][next_j].draw()
+                self._animate()
+                time.sleep(0.05)
+                self._break_walls_r(next_i, next_j)
+
+    def _debug_print_walls(self):
+        for i in range(len(self._cells)):
+            for j in range(len(self._cells[i])):
+                cell = self._cells[i][j]
+                print(f"Cell ({i},{j}): T:{cell.has_top_wall} R:{cell.has_right_wall} B:{cell.has_bottom_wall} L:{cell.has_left_wall}")
+                

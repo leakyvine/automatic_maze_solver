@@ -94,6 +94,7 @@ class Cell:
             fill = "gray"
         line = Line(Point(x1, y1), Point(x2, y2))
         line.draw(self._win.canvas, fill)
+        time.sleep(0.05)
 
 class Maze:
     def __init__(self, x1, y1, num_rows, num_cols, cell_size_x, cell_size_y, win=None, seed=None):
@@ -110,6 +111,7 @@ class Maze:
         self._break_walls_r(0, 0)
         self._break_entrance_and_exit()
         self._debug_print_walls()
+        self.solve()
 
     def _create_cells(self):
         self._cells = []
@@ -144,8 +146,9 @@ class Maze:
 
 
     def _animate(self):
-        self.win.redraw()
-        time.sleep(0.005)
+        if self.win is not None:
+            self.win.redraw()
+            #time.sleep(0.005)
 
     def _break_entrance_and_exit(self):
         start = self._cells[0][0]
@@ -206,7 +209,7 @@ class Maze:
                     self._cells[i][j].draw()
                     self._cells[next_i][next_j].draw()
                 self._animate()
-                time.sleep(0.05)
+                time.sleep(0.005)
                 self._break_walls_r(next_i, next_j)
 
     def _debug_print_walls(self):
@@ -214,4 +217,67 @@ class Maze:
             for j in range(len(self._cells[i])):
                 cell = self._cells[i][j]
                 print(f"Cell ({i},{j}): T:{cell.has_top_wall} R:{cell.has_right_wall} B:{cell.has_bottom_wall} L:{cell.has_left_wall}")
-                
+
+    def _reset_cells_visited(self):
+        for row in self._cells:
+            for cell in row:
+                cell.visited = False
+
+    def solve(self):
+        print(f"DEBUG: solve() called")
+        print(f"DEBUG: Maze dimensions: {len(self._cells)}x{len(self._cells[0])}")
+        self._reset_cells_visited()
+        solved = self._solve_r(0, 0)
+        if solved:
+            print("Result: Solution found!")
+            return True
+        print("Result: Solution not found...")
+        return False
+    
+    def _solve_r(self, i, j):
+        print(f"DEBUG: Exploring cell ({i}, {j})")
+        self._animate()
+        self._cells[i][j].visited = True
+        if i == len(self._cells) - 1 and j == len(self._cells[0]) - 1:
+            print(f"DEBUG: End cell reached {i}/{j}")
+            return True
+        # UP
+        if i > 0 and not self._cells[i][j].has_top_wall and not self._cells[i-1][j].has_bottom_wall and not self._cells[i-1][j].visited:
+            print(f"DEBUG: UP check - i > 0: {i > 0}, no top: {not self._cells[i][j].has_top_wall}, no bottom: {not self._cells[i-1][j].has_bottom_wall}, not visited: {not self._cells[i-1][j].visited}")
+            self._cells[i][j].draw_move(self._cells[i-1][j])
+            print(f"DEBUG: Moving UP from ({i}, {j}) to ({i-1}, {j})")
+            if self._solve_r(i-1, j):
+                return True
+            else:
+                self._cells[i][j].draw_move(self._cells[i-1][j], True)
+        # DOWN
+        if i < len(self._cells) -1 and not self._cells[i][j].has_bottom_wall and not self._cells[i+1][j].has_top_wall and not self._cells[i+1][j].visited:
+            print(f"DEBUG: DOWN check - i < len: {i < len(self._cells)-1}, no bottom: {not self._cells[i][j].has_bottom_wall}, no top: {not self._cells[i+1][j].has_top_wall}, not visited: {not self._cells[i+1][j].visited}")
+            self._cells[i][j].draw_move(self._cells[i+1][j])
+            print(f"DEBUG: Moving DOWN from ({i}, {j}) to ({i+1}, {j})")
+            if self._solve_r(i+1, j):
+                return True
+            else:
+                self._cells[i][j].draw_move(self._cells[i+1][j], True)
+        # LEFT
+        if j > 0 and not self._cells[i][j].has_left_wall and not self._cells[i][j-1].has_right_wall and not self._cells[i][j-1].visited:
+            print(f"DEBUG: LEFT check - j > 0: {j > 0}, no left: {not self._cells[i][j].has_left_wall}, no right: {not self._cells[i][j-1].has_right_wall}, not visited: {not self._cells[i][j-1].visited}")
+            self._cells[i][j].draw_move(self._cells[i][j-1])
+            print(f"DEBUG: Moving LEFT from ({i}, {j}) to ({i}, {j-1})")
+            if self._solve_r(i, j-1):
+                return True
+            else:
+                self._cells[i][j].draw_move(self._cells[i][j-1], True)
+        # RIGHT
+        if j < len(self._cells[0]) - 1 and not self._cells[i][j].has_right_wall and not self._cells[i][j+1].has_left_wall and not self._cells[i][j+1].visited:
+            print(f"DEBUG: RIGHT check - j < len: {j < len(self._cells[0])-1}, no right: {not self._cells[i][j].has_right_wall}, no left: {not self._cells[i][j+1].has_left_wall}, not visited: {not self._cells[i][j+1].visited}")
+            self._cells[i][j].draw_move(self._cells[i][j+1])
+            print(f"DEBUG: Moving RIGHT from ({i}, {j}) to ({i}, {j+1})")
+            if self._solve_r(i, j+1):
+                return True
+            else:
+                self._cells[i][j].draw_move(self._cells[i][j+1], True)
+        
+        print(f"DEBUG: No valid moves from ({i}, {j}), backtracking. End cell is at {len(self._cells)-1}/{len(self._cells[0])-1}")
+
+        return False
